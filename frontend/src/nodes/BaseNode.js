@@ -1,10 +1,31 @@
 // BaseNode.js
 // The core abstraction for all nodes in the pipeline.
-// Every node passes its unique config (title, fields, handles) as props.
-// BaseNode handles all the rendering and state management generically.
+//
+// PROP API:
+//   id       {string}  - ReactFlow node id (passed automatically by ReactFlow)
+//   data     {object}  - Initial field values from ReactFlow node data
+//   title    {string}  - Header label shown at the top of the node
+//   fields   {Array}   - List of field configs. Each field object:
+//                          { name, label, type, default, options? }
+//                          type: 'text' | 'number' | 'select' | 'textarea'
+//                          options: required when type === 'select'
+//   handles  {Array}   - List of Handle configs. Each handle object:
+//                          { id, type, position, style? }
+//                          type: 'source' | 'target'
+//                          position: Position.Left | Position.Right | etc.
+//   style    {object}  - Optional style overrides for the outer node container
+//
+// ADDING A NEW NODE takes ~10 lines — just pass config as props:
+//   export const MyNode = ({ id, data }) => (
+//     <BaseNode id={id} data={data} title="My Node"
+//       fields={[{ name: 'val', label: 'Value', type: 'text', default: '' }]}
+//       handles={[{ type: 'target', position: Position.Left,  id: `${id}-in`  },
+//                 { type: 'source', position: Position.Right, id: `${id}-out` }]}
+//     />
+//   );
 
 import { useState } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle } from 'reactflow';
 import { useStore } from '../store';
 
 export const BaseNode = ({ id, data, title, fields = [], handles = [], style = {} }) => {

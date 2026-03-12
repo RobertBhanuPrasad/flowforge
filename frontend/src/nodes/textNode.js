@@ -1,13 +1,18 @@
 // textNode.js
-// Part 1: Uses BaseNode abstraction.
-// Part 3: Extended with auto-resize and dynamic {{variable}} handles.
+// Part 1 + Part 3.
+//
+// NOTE: TextNode intentionally does NOT use BaseNode. The reason is that
+// Part 3 requires dynamic width/height resize and dynamic Handle generation
+// based on {{variable}} patterns in the text -- both require custom render
+// logic that cannot be expressed through BaseNode's static field/handle config.
+// All other 8 nodes use BaseNode.
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { BaseNode } from './BaseNode';
 import { useStore } from '../store';
 
-// Extracts valid JS variable names from {{varName}} patterns
+// Extracts valid JS variable names from {{varName}} patterns.
+// Regex follows JS identifier rules: start with letter/_ /$, then alphanumeric/_ /$.
 const extractVariables = (text) => {
   const regex = /\{\{([a-zA-Z_$][a-zA-Z0-9_$]*)\}\}/g;
   const vars = new Set();
@@ -18,19 +23,27 @@ const extractVariables = (text) => {
   return [...vars];
 };
 
+// Width grows based on the LONGEST single line — more accurate than total char count
+// because multiline text has many short lines that don't need a wide node.
+const calcWidth = (text) => {
+  const lines = text.split('\n');
+  const longestLine = Math.max(...lines.map((l) => l.length), 1);
+  return Math.min(480, Math.max(200, longestLine * 9));
+};
+
+// Textarea height grows with the actual number of lines typed.
+const calcTextareaHeight = (text) => {
+  const lineCount = text.split('\n').length;
+  return Math.max(48, lineCount * 20);
+};
+
 export const TextNode = ({ id, data }) => {
   const [currText, setCurrText] = useState(data?.text || '{{input}}');
   const [variables, setVariables] = useState(() => extractVariables(data?.text || '{{input}}'));
   const updateNodeField = useStore((state) => state.updateNodeField);
 
-  // Dynamically calculate node width and height based on text length (Part 3)
-  const minWidth = 200;
-  const minHeight = 80;
-  const charsPerLine = 20;
-  const lineHeight = 18;
-  const lines = Math.max(1, Math.ceil(currText.length / charsPerLine));
-  const dynamicWidth = Math.min(400, Math.max(minWidth, currText.length * 8));
-  const dynamicHeight = Math.max(minHeight, 50 + lines * lineHeight + variables.length * 24);
+  const nodeWidth = calcWidth(currText);
+  const textareaHeight = calcTextareaHeight(currText);
 
   const handleTextChange = (e) => {
     const val = e.target.value;
@@ -42,8 +55,7 @@ export const TextNode = ({ id, data }) => {
   return (
     <div
       style={{
-        width: dynamicWidth,
-        minHeight: dynamicHeight,
+        width: nodeWidth,
         border: '1px solid #555',
         borderRadius: 8,
         backgroundColor: '#1C2536',
@@ -56,6 +68,7 @@ export const TextNode = ({ id, data }) => {
       }}
     >
       {/* Dynamic target handles — one per {{variable}} (Part 3) */}
+      {/* Handles use ReactFlow's standard absolute positioning via the top style only */}
       {variables.map((varName, index) => (
         <Handle
           key={varName}
@@ -66,7 +79,7 @@ export const TextNode = ({ id, data }) => {
         />
       ))}
 
-      {/* Static output handle */}
+      {/* Static output handle on the right */}
       <Handle
         type="source"
         position={Position.Right}
@@ -79,14 +92,15 @@ export const TextNode = ({ id, data }) => {
       </div>
 
       {/* Body */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <span style={{ color: '#9ca3af', fontSize: 11 }}>Text:</span>
         <textarea
           value={currText}
           onChange={handleTextChange}
           style={{
             width: '100%',
-            padding: '3px 6px',
+            height: textareaHeight,
+            padding: '4px 6px',
             borderRadius: 4,
             border: '1px solid #374151',
             backgroundColor: '#111827',
@@ -94,12 +108,13 @@ export const TextNode = ({ id, data }) => {
             fontSize: 12,
             resize: 'none',
             boxSizing: 'border-box',
-            minHeight: Math.max(40, lines * lineHeight),
+            fontFamily: 'inherit',
           }}
         />
-        {/* Show detected variables as labels */}
+
+        {/* Variable badge pills — quick visual reference for detected variables */}
         {variables.length > 0 && (
-          <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <div style={{ marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {variables.map((v) => (
               <span
                 key={v}
